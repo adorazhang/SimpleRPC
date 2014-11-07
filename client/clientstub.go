@@ -17,7 +17,7 @@ func portmapper() string {
 	return loc
 }
 
-func Min(arr []uint8) [][]uint8 {
+func Min(arr []uint32) [][]uint32 {
 	loc := portmapper()
 	// done with the port mapper                                                                      //finished talking to port mapper
 	ser := conn2sTCP(loc, program+version, procedure, "1", "1x"+strconv.Itoa(len(arr)), "1x1") //get udpconnection
@@ -29,8 +29,8 @@ func Min(arr []uint8) [][]uint8 {
 	return results
 }
 
-func serialize(m1, m2 [][]uint8) []uint8 {
-	res := []uint8{}
+func serialize(m1, m2 [][]uint32) []uint32 {
+	res := []uint32{}
 	for i := 0; i < len(m1); i++ {
 		for j := 0; j < len(m1[i]); j++ {
 			res = append(res, m1[i][j])
@@ -44,7 +44,7 @@ func serialize(m1, m2 [][]uint8) []uint8 {
 	return res
 }
 
-func Multiply(m1, m2 [][]uint8) [][]uint8 {
+func Multiply(m1, m2 [][]uint32) [][]uint32 {
 	m := strconv.Itoa(len(m1))
 	n := strconv.Itoa(len(m1[0]))
 	l := strconv.Itoa(len(m2[0]))
@@ -61,7 +61,7 @@ func Multiply(m1, m2 [][]uint8) [][]uint8 {
 	return results
 }
 
-func Max(arr []uint8) [][]uint8 {
+func Max(arr []uint32) [][]uint32 {
 	loc := portmapper()
 	// done with the port mapper                                                                      //finished talking to port mapper
 	ser := conn2sTCP(loc, program+version, procedure, "1", "1x"+strconv.Itoa(len(arr)), "1x1") //get udpconnection
@@ -73,7 +73,7 @@ func Max(arr []uint8) [][]uint8 {
 	return results
 }
 
-func Sort(arr []uint8) [][]uint8 {
+func Sort(arr []uint32) [][]uint32 {
 	loc := portmapper()
 	// done with the port mapper                                                                      //finished talking to port mapper
 	ser := conn2sTCP(loc, program+version, procedure, "1", "1x"+strconv.Itoa(len(arr)), "1x"+strconv.Itoa(len(arr))) //get udpconnection
@@ -105,10 +105,11 @@ func getserver(conn net.Conn, key string) string {
 	dec := gob.NewDecoder(conn)
 	packet := PACKET{}
 	dec.Decode(&packet)
+	//fmt.Println(packet)
 	return packet.Content
 }
 
-func conn2sTCP(loc, progver, proce, numpara, paralen, returnlen string) *net.UDPConn {
+func conn2sTCP(loc, progver, proce, numpara, paralen, packetnum string) *net.UDPConn {
 	// Client stub connecting to server
 	TCPconn, _ := net.Dial("tcp", loc)
 	if TCPconn == nil {
@@ -116,7 +117,7 @@ func conn2sTCP(loc, progver, proce, numpara, paralen, returnlen string) *net.UDP
 		os.Exit(1)
 	}
 	// negotiate with the server
-	data := progver + "#" + proce + "#" + numpara + "#" + paralen + "#" + returnlen // e.g. Math1#Multiply#2#2x3#3x1#2x1
+	data := progver + "#" + proce + "#" + numpara + "#" + paralen + "#" + packetnum // e.g. Math1#Multiply#2#2x3#3x1#20000
 	//fmt.Println(data)
 	send(TCPconn, 4, data)
 
@@ -124,7 +125,6 @@ func conn2sTCP(loc, progver, proce, numpara, paralen, returnlen string) *net.UDP
 	dec := gob.NewDecoder(TCPconn)
 	packet := PACKET{}
 	dec.Decode(&packet)
-
 	if packet.Ptype != 5 {
 		p("Service not provided by that server")
 		return nil

@@ -1,36 +1,47 @@
 package main
 
 import (
-	"net"
-	//	"strconv"
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
+	"net"
 )
 
 // +build dev
 const SLICE = 5
 const BURST = 2
+const BUFFERSIZE = 1024
 
 // data packet sent to server
 type DATA struct {
-	packetNum    byte        // which packet am i
-	totalPackets byte        // how many packets in total
-	dataSlice    [SLICE]byte // the actual data
+	packetNum    uint32        // which packet am i
+	totalPackets uint32        // how many packets in total
+	dataSlice    [SLICE]uint32 // the actual data
 }
 
 func (a DATA) concat() []byte {
-	b := [2 + SLICE]byte{}
-	b[0] = a.packetNum
-	b[1] = a.totalPackets
+	tmp := [][]byte{}
+
+	t1 := make([]byte, 4)
+	binary.LittleEndian.PutUint32(t1, uint32(a.packetNum))
+	tmp = append(tmp, t1)
+
+	t2 := make([]byte, 4)
+	binary.LittleEndian.PutUint32(t2, uint32(a.totalPackets))
+	tmp = append(tmp, t2)
+
 	for i := 0; i < SLICE; i++ {
-		b[i+2] = a.dataSlice[i]
+		t3 := make([]byte, 4)
+		binary.LittleEndian.PutUint32(t3, uint32(a.dataSlice[i]))
+		tmp = append(tmp, t3)
 	}
-	return b[:]
+	return bytes.Join(tmp, []byte{})
 }
 
 // fill up the packet
-func fillup(a []uint8) [SLICE]byte {
-	arr := [SLICE]byte{}
+func fillup(a []uint32) [SLICE]uint32 {
+	arr := [SLICE]uint32{}
 	for i := 0; i < len(a); i++ {
 		arr[i] = a[i]
 	}
@@ -38,15 +49,15 @@ func fillup(a []uint8) [SLICE]byte {
 }
 
 // split an array into data packets
-func marshal(a []uint8) []DATA {
-	totalPackets := byte(len(a)/SLICE) + 1
+func marshal(a []uint32) []DATA {
+	totalPackets := uint32(math.Ceil(float64(len(a)) / SLICE))
 	ds := []DATA{}
 	d := DATA{}
 	for i := 0; i < len(a); i += SLICE {
 		if i+SLICE > len(a) { // the last packet
-			d = DATA{byte(i/SLICE) + 1, totalPackets, fillup(a[i:])}
+			d = DATA{uint32(i/SLICE + 1), uint32(totalPackets), fillup(a[i:])}
 		} else {
-			d = DATA{byte(i/SLICE) + 1, totalPackets, fillup(a[i : i+SLICE])}
+			d = DATA{uint32(i/SLICE + 1), uint32(totalPackets), fillup(a[i : i+SLICE])}
 		}
 		ds = append(ds, d)
 	}
@@ -55,7 +66,7 @@ func marshal(a []uint8) []DATA {
 
 // send marshaled data to server
 func senddata(con *net.UDPConn, packets []DATA) {
-	buffer := make([]byte, 512)
+	buffer := make([]byte, BUFFERSIZE)
 	for _, pac := range packets {
 		// send data
 		fmt.Println("Sent:", pac)
@@ -64,11 +75,11 @@ func senddata(con *net.UDPConn, packets []DATA) {
 			// wait for ack
 			n, _ := con.Read(buffer[0:])
 			if n > 0 {
-				fmt.Println("ACK:", buffer[0])
-				if buffer[0] == pac.totalPackets {
+				fmt.Println("ACK:", binary.LittleEndian.Uint32(buffer[0:4]))
+				if binary.LittleEndian.Uint32(buffer[0:4]) == uint32(pac.totalPackets) {
 					return
 				}
-				if buffer[0] == pac.packetNum {
+				if binary.LittleEndian.Uint32(buffer[0:4]) == uint32(pac.packetNum) {
 					continue
 				} else {
 					fmt.Println("Packet Lost!")
@@ -79,31 +90,34 @@ func senddata(con *net.UDPConn, packets []DATA) {
 	}
 }
 
-func redo(data []DATA) []byte {
-	a := [][]byte{}
-	for i := uint8(1); i <= uint8(len(data)); i++ {
+func redo(data []DATA) []uint32 {
+	a := []uint32{}
+	for i := uint32(1); i <= uint32(len(data)); i++ {
 		for _, val := range data {
 			if i == val.packetNum {
-				a = append(a, val.dataSlice[0:SLICE])
+				for j := 0; j < SLICE; j++ {
+					a = append(a, val.dataSlice[j])
+				}
 				break
 			}
 		}
 	}
-	return bytes.Join(a, []byte{})
+	return a
 }
-
-func pointer2data(a []byte) [SLICE]byte {
-	arr := [SLICE]byte{}
-	for i := 0; i < len(a); i++ {
-		arr[i] = a[i]
+func pointer2data(a []byte) [SLICE]uint32 {
+	arr := [SLICE]uint32{}
+	ind := 0
+	for i := 0; i < SLICE; i++ {
+		arr[i] = binary.LittleEndian.Uint32(a[ind : ind+4])
+		ind += 4
 	}
 	return arr
 }
 
-func demarshal(arr []uint8, row, col int) [][]uint8 {
-	b := [][]uint8{}
+func demarshal(arr []uint32, row, col int) [][]uint32 {
+	b := [][]uint32{}
 	for i := 0; i < row; i++ {
-		tmp := make([]uint8, col)
+		tmp := make([]uint32, col)
 		for j := 0; j < col; j++ {
 			tmp[j] = arr[i*col+j]
 		}
@@ -112,24 +126,24 @@ func demarshal(arr []uint8, row, col int) [][]uint8 {
 	return b
 }
 
-func getresult(con *net.UDPConn, row, col int) [][]uint8 {
+func getresult(con *net.UDPConn, row, col int) [][]uint32 {
 	// receive all data
-	buf := [512]byte{}
+	buf := [BUFFERSIZE]byte{}
 	ds := []DATA{}
 	for {
 		n, _ := con.Read(buf[0:])
 		if n != 0 {
-			d := DATA{packetNum: buf[0], totalPackets: buf[1], dataSlice: pointer2data(buf[2:n])}
+			d := DATA{packetNum: binary.LittleEndian.Uint32(buf[0:4]), totalPackets: binary.LittleEndian.Uint32(buf[4:8]), dataSlice: pointer2data(buf[8:n])}
 			ds = append(ds, d)
 			fmt.Println("Received result:", d)
-			if uint8(len(ds)) == buf[1] { // got all data
+			if uint32(len(ds)) == binary.LittleEndian.Uint32(buf[4:8]) { // got all data
 				break
 			}
 		}
 	}
 	con.Close() //finished RPC
 	alldata := redo(ds)
-	res := [][]uint8{}
+	res := [][]uint32{}
 	for i := 0; i < row; i++ {
 		res = demarshal(alldata, row, col)
 	}

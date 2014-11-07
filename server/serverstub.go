@@ -84,6 +84,7 @@ func startDaemon(pm net.Conn, progver string) {
 	dec := gob.NewDecoder(pm)
 	packet := PACKET{}
 	dec.Decode(&packet)
+	//fmt.Println(packet)
 
 	if packet.Content != progver {
 		p("Register unsuccessful!")

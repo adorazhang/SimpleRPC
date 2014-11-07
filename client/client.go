@@ -3,7 +3,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"strconv"
 )
 
 var args []string
@@ -19,20 +21,37 @@ func Usage() {
 	fmt.Println("Help")
 }
 
-func main() {
-	//args = os.Args
-	//args = []string{"Math", "1", "Sort", "5"}
-	args = []string{"Math", "1", "Multiply", "2", "3", "3", "1"}
-	program = args[0]
-	version = args[1]
-	procedure = args[2]
+func randomarr(len int) []uint32 {
+	a := []uint32{}
+	for i := 0; i < len; i++ {
+		a = append(a, uint32(rand.Intn(100)))
+	}
+	return a
+}
 
-	if args == nil || len(args) < 3 {
+func randommatrix(row, col int) [][]uint32 {
+	a := [][]uint32{}
+	for i := 0; i < row; i++ {
+		b := []uint32{}
+		for i := 0; i < col; i++ {
+			b = append(b, uint32(rand.Intn(100)))
+		}
+		a = append(a, b)
+	}
+	return a
+}
+
+func main() {
+	args = os.Args
+	if len(args) == 1 {
 		Usage()
 		return
 	}
-	if program != "Math" {
-		p("Please use the only program: math for testing!")
+	program = args[1]
+	version = args[2]
+	procedure = args[3]
+	if program != "Math" || program == "help" {
+		p("Please use the only program: Math for testing!")
 		Usage()
 		return
 	}
@@ -42,40 +61,50 @@ func main() {
 		return
 	}
 
+	//args = []string{"Math", "1", "Sort", "36"}
+	//args = []string{"Math", "1", "Multiply", "2", "3", "3", "1"}
 	//Client calling remote procedure as if local
-	arr := []uint8{5, 2, 4, 16, 23, 6, 3, 9, 13, 6, 4, 123, 2, 6, 4, 13, 91, 16}
-	m1 := [][]uint8{{1, 2, 3}, {3, 4, 5}}
-	m2 := [][]uint8{{2}, {1}, {2}}
 	switch procedure {
 	case "Min":
-		if len(args) != 4 {
+		if len(args) != 5 {
 			Usage()
 			return
 		}
+		len, _ := strconv.Atoi(args[4])
+		arr := randomarr(len)
 		ret := Min(arr)
 		fmt.Println("Min:", ret)
 	case "Max":
-		if len(args) != 4 {
+		if len(args) != 5 {
 			Usage()
 			return
 		}
+		len, _ := strconv.Atoi(args[4])
+		arr := randomarr(len)
 		ret := Max(arr)
 		fmt.Println("Max:", ret)
 	case "Sort":
-		if len(args) != 4 {
+		if len(args) != 5 {
 			Usage()
 			return
 		}
+		len, _ := strconv.Atoi(args[4])
+		arr := randomarr(len)
 		ret := Sort(arr)
 		fmt.Println("Sort: ", ret)
 	case "Multiply":
-		if len(args) != 7 {
+		if len(args) != 8 {
 			Usage()
 			return
 		}
-		if args[4] != args[5] {
+		if args[5] != args[6] {
 			p("Matrix dimension must match!")
 		}
+		m, _ := strconv.Atoi(args[4])
+		n, _ := strconv.Atoi(args[5])
+		l, _ := strconv.Atoi(args[7])
+		m1 := randommatrix(m, n)
+		m2 := randommatrix(n, l)
 		ret := Multiply(m1, m2)
 		fmt.Println("Multipy:")
 		for i := 0; i < len(m1); i++ {

@@ -53,20 +53,6 @@ func p(str string) {
 	fmt.Println(str)
 }
 
-func Min(arr []int) {
-
-}
-
-func Max() {
-	fmt.Printf("")
-}
-
-func Sort() {
-}
-
-func Multiply() {
-}
-
 func printerr(e error) {
 	if e != nil {
 		fmt.Println(e)

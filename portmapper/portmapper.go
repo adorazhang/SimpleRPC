@@ -49,12 +49,14 @@ func handleConnection(conn net.Conn) {
 	case 0:
 		fmt.Println("====================================================================\n[[[SERVER REGISTER RECEIVED]]]")
 		ack := putInTable(packet.Content)
+		//fmt.Println(packet.Content)
 		fmt.Println(table)
 		// acknowledge
 		send1(conn, ack)
 	case 2:
 		// client request server location
 		key := packet.Content
+		//fmt.Println(packet.Content)
 		// look up table
 		_, ok := table[key]
 		if ok {
